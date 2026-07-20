@@ -1,4 +1,4 @@
-let levels = [];
+app_fixed = '''let levels = [];
 let currentLevelIndex = 0;
 let score = 0;
 let mistakes = 0;
@@ -9,6 +9,8 @@ let spawnTimer = 0;
 let lastTs = 0;
 let nextLane = 0;
 let LANE_Y = [];
+let lastResultSuccess = true;
+let itemFell = false;
 
 const TYPES = [
   { key: 'Pen', emoji: '✏️', color: '#ffd85f' },
@@ -36,8 +38,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   els.bins = Array.from(document.querySelectorAll('.bin'));
   els.phone = document.querySelector('.phone');
 
-  document.body.addEventListener('pointerdown', () => window.Sounds && window.Sounds.unlockAudio(), { once: true });
-
   await loadLevels();
   setupNextButton();
   computeLaneY();
@@ -61,8 +61,12 @@ async function loadLevels() {
 function setupNextButton() {
   els.nextLevelBtn.addEventListener('click', () => {
     els.endPanel.classList.add('hidden');
-    const next = currentLevelIndex + 1;
-    startLevel(next >= levels.length ? 0 : next);
+    if (lastResultSuccess) {
+      const next = currentLevelIndex + 1;
+      startLevel(next >= levels.length ? 0 : next);
+    } else {
+      startLevel(0);
+    }
   });
 }
 
@@ -77,8 +81,16 @@ function startLevel(index) {
   score = 0; mistakes = 0;
   beltItems.forEach(s => s.el.remove());
   beltItems = [];
-  nextLane = 0; spawnTimer = 0; running = true;
+  nextLane = 0; spawnTimer = 0;
+  itemFell = false;
+  running = true;
   els.endPanel.classList.add('hidden');
+
+  if (dragEl) {
+    dragEl.classList.remove('dragging');
+    dragEl = null;
+    dragItemData = null;
+  }
 
   els.levelLabel.textContent = String(level.level || 1);
   els.objectiveText.textContent = `Smista ${level.targetPens} penne, ${level.targetNotes} note, ${level.targetAccessories} accessori`;
@@ -91,7 +103,7 @@ function startLevel(index) {
   spawnQueue = shuffle(spawnQueue);
 
   updateHUD();
-  lastTs = performance.now();
+  lastTs = 0;
 }
 
 function shuffle(arr){const a=arr.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
@@ -122,22 +134,25 @@ function attachDragHandlers(el, data) {
 }
 
 function startDrag(e, el, data) {
-  if (!running) return;
+  if (!running || data.dragging) return;
   e.preventDefault();
+  e.stopPropagation();
+
   dragEl = el;
   dragItemData = data;
   data.dragging = true;
   el.classList.add('dragging');
-  el.setPointerCapture(e.pointerId);
+
+  try { el.setPointerCapture(e.pointerId); } catch(err) {}
 
   window.Sounds && window.Sounds.pickUp();
 
-  const rect = el.getBoundingClientRect();
-  dragOffsetX = e.clientX - rect.left;
-  dragOffsetY = e.clientY - rect.top;
+  const itemsRootRect = els.itemsRoot.getBoundingClientRect();
+  const elRect = el.getBoundingClientRect();
+  dragOffsetX = e.clientX - elRect.left;
+  dragOffsetY = e.clientY - elRect.top;
 
   el.style.zIndex = 50;
-  el.style.transition = 'none';
 
   el.addEventListener('pointermove', onDragMove);
   el.addEventListener('pointerup', onDragEnd);
@@ -146,9 +161,10 @@ function startDrag(e, el, data) {
 
 function onDragMove(e) {
   if (!dragEl) return;
-  const phoneRect = els.phone.getBoundingClientRect();
-  const x = e.clientX - phoneRect.left - dragOffsetX;
-  const y = e.clientY - phoneRect.top - dragOffsetY;
+  e.preventDefault();
+  const itemsRootRect = els.itemsRoot.getBoundingClientRect();
+  const x = e.clientX - itemsRootRect.left - dragOffsetX;
+  const y = e.clientY - itemsRootRect.top - dragOffsetY;
   dragEl.style.left = x + 'px';
   dragEl.style.top = y + 'px';
 
@@ -167,8 +183,8 @@ function onDragEnd(e) {
   el.removeEventListener('pointermove', onDragMove);
   el.removeEventListener('pointerup', onDragEnd);
   el.removeEventListener('pointercancel', onDragEnd);
+  try { el.releasePointerCapture(e.pointerId); } catch(err) {}
   el.classList.remove('dragging');
-  el.style.transition = '';
 
   let droppedBin = null;
   els.bins.forEach(bin => {
@@ -186,6 +202,7 @@ function onDragEnd(e) {
   } else {
     data.dragging = false;
     el.style.top = data.y + 'px';
+    el.style.left = data.x + 'px';
   }
 }
 
@@ -227,7 +244,8 @@ function checkWin() {
 
 function loop(ts) {
   if (!lastTs) lastTs = ts;
-  const dt = (ts - lastTs) / 1000;
+  let dt = (ts - lastTs) / 1000;
+  if (dt > 0.1) dt = 0.1;
   lastTs = ts;
 
   if (running) {
@@ -249,12 +267,13 @@ function loop(ts) {
       s.x += speed * dt;
       s.el.style.left = s.x + 'px';
 
-      if (s.x > beltWidth) {
+      if (s.x > beltWidth && !itemFell) {
+        itemFell = true;
         s.el.remove();
         beltItems.splice(i, 1);
         window.Sounds && window.Sounds.gameOver();
         showEnd(false, 'Un oggetto non smistato è caduto dal nastro!');
-        return;
+        break;
       }
     }
   }
@@ -264,8 +283,13 @@ function loop(ts) {
 
 function showEnd(success, reasonText) {
   running = false;
+  lastResultSuccess = success;
   els.endPanel.classList.remove('hidden');
   els.endTitle.textContent = success ? 'Livello completato!' : 'Game Over';
   els.endSubtitle.textContent = success ? `Punteggio: ${score}` : (reasonText || `Errori: ${mistakes}`) + ` — Punteggio: ${score}`;
+  els.nextLevelBtn.textContent = success ? 'Prossimo livello' : 'Ricomincia dal livello 1';
   if (success) window.Sounds && window.Sounds.levelComplete();
 }
+'''
+open('output/stationery_sort_web/app.js','w', encoding='utf-8').write(app_fixed)
+print("app.js fixed")
