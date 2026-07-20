@@ -1,4 +1,9 @@
-app_fixed = '''let levels = [];
+let levels = [
+  { level: 1, targetPens: 8, targetNotes: 6, targetAccessories: 5, spawnInterval: 1.1, beltSpeed: 1, allowedMistakes: 5 },
+  { level: 2, targetPens: 10, targetNotes: 8, targetAccessories: 6, spawnInterval: 1.0, beltSpeed: 1.15, allowedMistakes: 5 },
+  { level: 3, targetPens: 12, targetNotes: 10, targetAccessories: 8, spawnInterval: 0.9, beltSpeed: 1.3, allowedMistakes: 4 }
+];
+
 let currentLevelIndex = 0;
 let score = 0;
 let mistakes = 0;
@@ -25,7 +30,7 @@ let dragOffsetX = 0;
 let dragOffsetY = 0;
 let dragItemData = null;
 
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', () => {
   els.scoreChip = document.getElementById('scoreChip');
   els.objectiveText = document.getElementById('objectiveText');
   els.levelLabel = document.getElementById('levelLabel');
@@ -38,7 +43,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   els.bins = Array.from(document.querySelectorAll('.bin'));
   els.phone = document.querySelector('.phone');
 
-  await loadLevels();
   setupNextButton();
   computeLaneY();
   startLevel(0);
@@ -50,12 +54,6 @@ function computeLaneY() {
   const itemSize = 58;
   const margin = 6;
   LANE_Y = [margin, beltHeight/2 - itemSize/2, beltHeight - itemSize - margin];
-}
-
-async function loadLevels() {
-  const res = await fetch('levels.json');
-  const data = await res.json();
-  levels = data.levels || [];
 }
 
 function setupNextButton() {
@@ -138,6 +136,8 @@ function startDrag(e, el, data) {
   e.preventDefault();
   e.stopPropagation();
 
+  window.Sounds && window.Sounds.unlockAudio();
+
   dragEl = el;
   dragItemData = data;
   data.dragging = true;
@@ -147,7 +147,6 @@ function startDrag(e, el, data) {
 
   window.Sounds && window.Sounds.pickUp();
 
-  const itemsRootRect = els.itemsRoot.getBoundingClientRect();
   const elRect = el.getBoundingClientRect();
   dragOffsetX = e.clientX - elRect.left;
   dragOffsetY = e.clientY - elRect.top;
@@ -290,6 +289,3 @@ function showEnd(success, reasonText) {
   els.nextLevelBtn.textContent = success ? 'Prossimo livello' : 'Ricomincia dal livello 1';
   if (success) window.Sounds && window.Sounds.levelComplete();
 }
-'''
-open('output/stationery_sort_web/app.js','w', encoding='utf-8').write(app_fixed)
-print("app.js fixed")
