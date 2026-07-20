@@ -1,190 +1,63 @@
-let levels = [];
-let currentLevelIndex = 0;
-let score = 0;
-let mistakes = 0;
-let selectedItem = null;
-let beltState = [];
-let beltSpeed = 1.0;
-let running = false;
 
-const TYPES = [
-  { key: 'Pen', emoji: '✏️', color: '#ffd85f' },
-  { key: 'Note', emoji: '🗒️', color: '#ff9dca' },
-  { key: 'Accessory', emoji: '📎', color: '#8ee7b3' }
-];
+:root{
+  --ink:#3a2750;
+}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;font-family:Inter,system-ui,sans-serif;color:var(--ink);
+  background:linear-gradient(180deg,#8dd9ff 0%,#d6f3ff 38%,#ffe0ef 72%,#ffd2ea 100%);}
+.phone{width:min(100%,430px);aspect-ratio:9/19;position:relative;border-radius:42px;background:linear-gradient(180deg,#e8fbff,#fff3fb 60%,#fff0d9 100%);border:8px solid #261a36;box-shadow:0 34px 90px rgba(53,34,79,.28);overflow:hidden;}
+.topbar{position:absolute;left:14px;right:14px;top:14px;display:flex;justify-content:space-between;z-index:4;}
+.chip{display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:999px;background:linear-gradient(180deg,#fffefb,#ffeccb);border:4px solid var(--ink);font-weight:900;font-size:14px;}
+.chip.blue{background:linear-gradient(180deg,#ffffff,#dff4ff)}
+.logo{position:absolute;left:50%;top:66px;transform:translateX(-50%) rotate(-2deg);background:linear-gradient(180deg,#fff7a8,#ffd95b);border:4px solid var(--ink);border-radius:24px;padding:12px 20px 10px;z-index:4;text-align:center;}
+.logo .big{font-size:26px;line-height:1;font-weight:1000;}
+.logo .small{font-size:12px;font-weight:800;opacity:.75;margin-top:4px;}
+.objective{position:absolute;left:24px;right:24px;top:158px;z-index:4;background:linear-gradient(180deg,#fffefb,#fff1f7);border:4px solid var(--ink);border-radius:22px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+.objective .left{display:flex;align-items:center;gap:10px}
+.bubble-icon{width:44px;height:44px;border-radius:16px;border:3px solid var(--ink);display:grid;place-items:center;background:linear-gradient(180deg,#dff9e8,#91efb3);font-size:22px;}
+.objective .title{font-size:13px;font-weight:900;}
+.objective .sub{font-size:11px;font-weight:700;color:#78688e;margin-top:3px;}
+.objective .count{font-size:22px;font-weight:1000;}
 
-const LANE_Y = [18, 92, 166];
-const els = {};
+/* BELT: altezza generosa per contenere davvero 3 righe distinte */
+.belt-shell{
+  position:absolute;left:16px;right:16px;top:234px;bottom:176px;
+  background:linear-gradient(180deg,#ffffff,#eef8ff);
+  border:5px solid var(--ink);border-radius:34px;overflow:hidden;
+}
+.belt{
+  position:absolute;left:16px;right:16px;top:14px;bottom:14px;
+  border:4px solid var(--ink);border-radius:28px;
+  background:repeating-linear-gradient(90deg,#7f9cc0 0 20px,#90a8c8 20px 40px);
+  overflow:hidden;
+}
+.lane{position:absolute;left:0;right:0;height:3px;background:rgba(58,39,80,.25);}
+.l1{top:33%}
+.l2{top:66%}
 
-document.addEventListener('DOMContentLoaded', async () => {
-  els.scoreChip = document.getElementById('scoreChip');
-  els.objectiveText = document.getElementById('objectiveText');
-  els.levelLabel = document.getElementById('levelLabel');
-  els.itemsRoot = document.getElementById('itemsRoot');
-  els.endPanel = document.getElementById('endPanel');
-  els.endTitle = document.getElementById('endTitle');
-  els.endSubtitle = document.getElementById('endSubtitle');
-  els.nextLevelBtn = document.getElementById('nextLevelBtn');
-  els.bins = Array.from(document.querySelectorAll('.bin'));
-
-  await loadLevels();
-  setupBins();
-  setupNextButton();
-  startLevel(0);
-  running = true;
-  requestAnimationFrame(loop);
-});
-
-async function loadLevels() {
-  const res = await fetch('levels.json');
-  const data = await res.json();
-  levels = data.levels || [];
+.items-root{position:absolute;left:0;right:0;top:0;bottom:0;}
+.item{
+  position:absolute;
+  width:58px;height:58px;
+  border-radius:20px;border:4px solid var(--ink);
+  display:flex;align-items:center;justify-content:center;font-size:26px;
+  background:#fff;
+  box-shadow:0 8px 0 rgba(58,39,80,.14);
+  cursor:pointer;
 }
 
-function setupBins() {
-  els.bins.forEach(bin => bin.addEventListener('click', () => onBinClick(bin)));
-}
+.bins{position:absolute;left:14px;right:14px;bottom:18px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;z-index:3;}
+.bin{min-height:130px;border-radius:30px;border:5px solid var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;padding:12px 8px;cursor:pointer;}
+.bin .icon{font-size:34px;}
+.bin .name{font-size:16px;font-weight:1000;}
+.bin small{font-size:10px;font-weight:800;color:#5f5270;}
+.b1{background:linear-gradient(180deg,#fff6b2,#ffd459)}
+.b2{background:linear-gradient(180deg,#ffe0ef,#ff9dca)}
+.b3{background:linear-gradient(180deg,#d8ffea,#8ee7b3)}
 
-function setupNextButton() {
-  els.nextLevelBtn.addEventListener('click', () => {
-    els.endPanel.classList.add('hidden');
-    const next = currentLevelIndex + 1;
-    startLevel(next >= levels.length ? 0 : next);
-  });
-}
+.pointer{position:absolute;right:28px;bottom:198px;z-index:4;background:#fff;border:4px solid var(--ink);border-radius:999px;padding:8px 12px;font-size:12px;font-weight:900;}
 
-function updateHUD() {
-  els.scoreChip.textContent = '⭐ ' + score;
-}
-
-function startLevel(index) {
-  currentLevelIndex = index;
-  const level = levels[index] || levels[0];
-
-  score = 0;
-  mistakes = 0;
-  selectedItem = null;
-  beltState = [];
-  running = true;
-
-  els.levelLabel.textContent = String(level.level || 1);
-  els.objectiveText.textContent = `Smista ${level.targetPens} penne, ${level.targetNotes} note, ${level.targetAccessories} accessori`;
-  els.itemsRoot.innerHTML = '';
-
-  const totalPens = level.targetPens || 0;
-  const totalNotes = level.targetNotes || 0;
-  const totalAccessories = level.targetAccessories || 0;
-  const totalItems = totalPens + totalNotes + totalAccessories;
-  const laneCount = Math.max(1, level.lanes || 1);
-
-  const typeQueue = [];
-  for (let i = 0; i < totalPens; i++) typeQueue.push('Pen');
-  for (let i = 0; i < totalNotes; i++) typeQueue.push('Note');
-  for (let i = 0; i < totalAccessories; i++) typeQueue.push('Accessory');
-
-  const columns = Math.ceil(totalItems / laneCount);
-  const xSpacing = 74;
-  const laneOffsets = [0, 0, 0];
-
-  for (let lane = 0; lane < laneCount; lane++) {
-    for (let col = 0; col < columns; col++) {
-      const i = lane * columns + col;
-      if (i >= totalItems) continue;
-      const type = typeQueue[i];
-      const t = TYPES.find(x => x.key === type);
-      const x = 18 + col * xSpacing;
-      const y = LANE_Y[lane] + (lane * 2);
-
-      const el = document.createElement('div');
-      el.className = 'item';
-      el.dataset.type = t.key;
-      el.textContent = t.emoji;
-      el.style.background = t.color;
-      el.style.left = x + 'px';
-      el.style.top = y + 'px';
-      el.addEventListener('click', () => selectItem(el));
-      els.itemsRoot.appendChild(el);
-
-      beltState.push({ el, x, y, type: t.key });
-    }
-  }
-
-  updateHUD();
-}
-
-function selectItem(el) {
-  if (!running) return;
-  selectedItem = el;
-  document.querySelectorAll('.item').forEach(i => i.style.outline = 'none');
-  el.style.outline = '4px solid rgba(255,255,255,0.9)';
-  el.style.transform = 'scale(1.08)';
-  setTimeout(() => {
-    if (document.body.contains(el)) el.style.transform = 'scale(1)';
-  }, 160);
-}
-
-function onBinClick(bin) {
-  if (!running || !selectedItem) return;
-  const itemType = selectedItem.dataset.type;
-  const binType = bin.dataset.type;
-
-  bin.style.transform = 'translateY(-4px)';
-  setTimeout(() => bin.style.transform = 'translateY(0)', 120);
-
-  if (itemType === binType) {
-    score += 10;
-    selectedItem.style.transition = 'transform 0.22s ease, opacity 0.22s ease';
-    selectedItem.style.transform = 'translateY(220px) scale(0.9)';
-    selectedItem.style.opacity = '0';
-    setTimeout(() => selectedItem.remove(), 220);
-    beltState = beltState.filter(s => s.el !== selectedItem);
-  } else {
-    mistakes += 1;
-    score = Math.max(0, score - 5);
-  }
-
-  selectedItem = null;
-  document.querySelectorAll('.item').forEach(i => i.style.outline = 'none');
-  updateHUD();
-
-  const level = levels[currentLevelIndex] || levels[0];
-  if (mistakes >= (level.allowedMistakes || 5)) {
-    showEnd(false);
-    return;
-  }
-
-  if (document.querySelectorAll('.item').length === 0) {
-    showEnd(true);
-  }
-}
-
-function loop() {
-  if (!running) {
-    requestAnimationFrame(loop);
-    return;
-  }
-
-  const belt = document.querySelector('.belt');
-  if (belt) {
-    const beltWidth = belt.clientWidth;
-    beltState.forEach(s => {
-      if (!document.body.contains(s.el)) return;
-      s.x += 0.35;
-      s.el.style.left = s.x + 'px';
-      s.el.style.top = s.y + 'px';
-      if (s.x > beltWidth - 78) {
-        s.x = 18;
-        s.el.style.left = s.x + 'px';
-      }
-    });
-  }
-
-  requestAnimationFrame(loop);
-}
-
-function showEnd(success) {
-  running = false;
-  els.endPanel.classList.remove('hidden');
-  els.endTitle.textContent = success ? 'Livello completato!' : 'Ritenta!';
-  els.endSubtitle.textContent = success ? `Punteggio: ${score}` : `Errori: ${mistakes}`;
-}
+.end-panel{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);}
+.hidden{display:none}
+.end-card{background:#fffaf3;border-radius:24px;padding:20px 18px;border:4px solid var(--ink);text-align:center;}
+.end-card button{border:0;border-radius:18px;padding:10px 18px;background:#5fcf92;color:#fff;font-weight:900;cursor:pointer;}
