@@ -19,7 +19,6 @@ body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:c
 .objective .sub{font-size:11px;font-weight:700;color:#78688e;margin-top:3px;}
 .objective .count{font-size:22px;font-weight:1000;}
 
-/* BELT: altezza generosa per contenere davvero 3 righe distinte */
 .belt-shell{
   position:absolute;left:16px;right:16px;top:234px;bottom:176px;
   background:linear-gradient(180deg,#ffffff,#eef8ff);
@@ -36,6 +35,7 @@ body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:c
 .l2{top:66%}
 
 .items-root{position:absolute;left:0;right:0;top:0;bottom:0;}
+
 .item{
   position:absolute;
   width:58px;height:58px;
@@ -43,17 +43,43 @@ body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:c
   display:flex;align-items:center;justify-content:center;font-size:26px;
   background:#fff;
   box-shadow:0 8px 0 rgba(58,39,80,.14);
-  cursor:pointer;
+  cursor:grab;
+  touch-action:none;
+  user-select:none;
+  transition:box-shadow .12s ease, transform .12s ease;
+}
+.item.dragging{
+  cursor:grabbing;
+  box-shadow:0 14px 24px rgba(0,0,0,.25);
+  transform:scale(1.08);
 }
 
 .bins{position:absolute;left:14px;right:14px;bottom:18px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;z-index:3;}
-.bin{min-height:130px;border-radius:30px;border:5px solid var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;padding:12px 8px;cursor:pointer;}
+.bin{
+  min-height:130px;border-radius:30px;border:5px solid var(--ink);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  text-align:center;padding:12px 8px;cursor:pointer;
+  transition:transform .12s ease, box-shadow .12s ease;
+}
 .bin .icon{font-size:34px;}
 .bin .name{font-size:16px;font-weight:1000;}
 .bin small{font-size:10px;font-weight:800;color:#5f5270;}
 .b1{background:linear-gradient(180deg,#fff6b2,#ffd459)}
 .b2{background:linear-gradient(180deg,#ffe0ef,#ff9dca)}
 .b3{background:linear-gradient(180deg,#d8ffea,#8ee7b3)}
+
+.bin-hover{
+  transform:scale(1.06);
+  box-shadow:0 0 0 6px rgba(255,255,255,.6), 0 10px 0 rgba(58,39,80,.14);
+}
+.bin-shake{
+  animation:shake .24s ease;
+}
+@keyframes shake{
+  0%,100%{transform:translateX(0)}
+  25%{transform:translateX(-6px)}
+  75%{transform:translateX(6px)}
+}
 
 .pointer{position:absolute;right:28px;bottom:198px;z-index:4;background:#fff;border:4px solid var(--ink);border-radius:999px;padding:8px 12px;font-size:12px;font-weight:900;}
 
