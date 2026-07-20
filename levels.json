@@ -1,0 +1,43 @@
+{
+  "levels": [
+    {
+      "level": 1,
+      "world": 1,
+      "beltSpeed": 1.0,
+      "spawnInterval": 1.2,
+      "targetPens": 8,
+      "targetNotes": 6,
+      "targetAccessories": 5,
+      "allowedMistakes": 5,
+      "lanes": 1,
+      "jamThreshold": 10,
+      "suggestedBooster": "freeze_belt"
+    },
+    {
+      "level": 2,
+      "world": 1,
+      "beltSpeed": 1.03,
+      "spawnInterval": 1.19,
+      "targetPens": 8,
+      "targetNotes": 6,
+      "targetAccessories": 5,
+      "allowedMistakes": 5,
+      "lanes": 1,
+      "jamThreshold": 10,
+      "suggestedBooster": "freeze_belt"
+    },
+    {
+      "level": 3,
+      "world": 1,
+      "beltSpeed": 1.06,
+      "spawnInterval": 1.18,
+      "targetPens": 9,
+      "targetNotes": 6,
+      "targetAccessories": 5,
+      "allowedMistakes": 5,
+      "lanes": 1,
+      "jamThreshold": 10,
+      "suggestedBooster": "freeze_belt"
+    }
+  ]
+}

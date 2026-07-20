@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stationery Sort!</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="phone">
+    <div class="cloud c1"></div><div class="cloud c2"></div>
+    <div class="star s1">✨</div><div class="star s2">⭐</div><div class="star s3">✨</div>
+
+    <div class="topbar">
+      <div class="chip" id="scoreChip">⭐ 0</div>
+      <div class="chip blue">🪙 145</div>
+    </div>
+
+    <div class="logo">
+      <div class="big">Stationery Sort!</div>
+      <div class="small">Cute Conveyor Puzzle</div>
+    </div>
+
+    <div class="objective">
+      <div class="left">
+        <div class="bubble-icon">📒</div>
+        <div>
+          <div class="title">Obiettivo livello</div>
+          <div class="sub" id="objectiveText">Smista tutti gli oggetti di cancelleria</div>
+        </div>
+      </div>
+      <div class="count" id="levelLabel">1</div>
+    </div>
+
+    <div class="belt-shell">
+      <div class="belt">
+        <div class="lane l1"></div>
+        <div class="lane l2"></div>
+      </div>
+      <div class="items-root" id="itemsRoot">
+        <!-- gli item vengono creati via JS -->
+      </div>
+    </div>
+
+    <div class="pointer">Tocca e smista!</div>
+
+    <div class="bins">
+      <div class="bin b1" data-type="Pen">
+        <div class="icon">✏️</div>
+        <div class="name">Penne</div>
+        <small>matite, penne, colori</small>
+      </div>
+      <div class="bin b2" data-type="Note">
+        <div class="icon">🗒️</div>
+        <div class="name">Note</div>
+        <small>sticky e block notes</small>
+      </div>
+      <div class="bin b3" data-type="Accessory">
+        <div class="icon">📎</div>
+        <div class="name">Accessori</div>
+        <small>clip, forbici, righelli</small>
+      </div>
+    </div>
+
+    <div class="end-panel hidden" id="endPanel">
+      <div class="end-card">
+        <h2 id="endTitle">Livello completato!</h2>
+        <p id="endSubtitle"></p>
+        <button id="nextLevelBtn">Prossimo livello</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
