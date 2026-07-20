@@ -13,7 +13,7 @@ const TYPES = [
   { key: 'Accessory', emoji: '📎', color: '#8ee7b3' }
 ];
 
-const LANE_Y = [26, 146, 266];
+const LANE_Y = [18, 98, 178];
 const els = {};
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -72,26 +72,29 @@ function startLevel(index) {
   els.objectiveText.textContent = `Smista ${level.targetPens} penne, ${level.targetNotes} note, ${level.targetAccessories} accessori`;
   els.itemsRoot.innerHTML = '';
 
-  const totalPens = level.targetPens || 0;
-  const totalNotes = level.targetNotes || 0;
-  const totalAccessories = level.targetAccessories || 0;
-  const totalItems = totalPens + totalNotes + totalAccessories;
+  const counts = {
+    Pen: level.targetPens || 0,
+    Note: level.targetNotes || 0,
+    Accessory: level.targetAccessories || 0
+  };
 
-  const order = [
-    ...Array(totalPens).fill('Pen'),
-    ...Array(totalNotes).fill('Note'),
-    ...Array(totalAccessories).fill('Accessory')
-  ];
+  const levelTypes = [];
+  Object.keys(counts).forEach(k => {
+    for (let i = 0; i < counts[k]; i++) levelTypes.push(k);
+  });
 
-  const perLaneSpacing = 96;
-  const startX = 18;
-  const maxVisible = 10;
+  const laneCount = Math.max(1, level.lanes || 1);
+  const xSpacing = 92;
+  const ySpacing = 78;
+  const perLaneCount = Math.ceil(levelTypes.length / laneCount);
 
-  for (let i = 0; i < totalItems; i++) {
-    const type = order[i % order.length];
+  for (let i = 0; i < levelTypes.length; i++) {
+    const type = levelTypes[i];
     const t = TYPES.find(x => x.key === type);
-    const lane = i % Math.max(1, (level.lanes || 1));
-    const x = startX + (i % maxVisible) * perLaneSpacing + Math.floor(i / maxVisible) * 30;
+    const lane = i % laneCount;
+    const col = Math.floor(i / laneCount);
+    const x = 18 + col * xSpacing;
+    const y = LANE_Y[lane] + (col % 2) * 4;
 
     const el = document.createElement('div');
     el.className = 'item';
@@ -99,16 +102,11 @@ function startLevel(index) {
     el.textContent = t.emoji;
     el.style.background = t.color;
     el.style.left = x + 'px';
-    el.style.top = LANE_Y[lane] + 'px';
+    el.style.top = y + 'px';
     el.addEventListener('click', () => selectItem(el));
     els.itemsRoot.appendChild(el);
 
-    beltState.push({
-      el,
-      x,
-      lane,
-      type: t.key
-    });
+    beltState.push({ el, x, y, lane, type: t.key });
   }
 
   updateHUD();
@@ -127,7 +125,6 @@ function selectItem(el) {
 
 function onBinClick(bin) {
   if (!running || !selectedItem) return;
-
   const itemType = selectedItem.dataset.type;
   const binType = bin.dataset.type;
 
@@ -170,12 +167,11 @@ function loop() {
   const belt = document.querySelector('.belt');
   if (belt) {
     const beltWidth = belt.clientWidth;
-
     beltState.forEach(s => {
       if (!document.body.contains(s.el)) return;
       s.x += beltSpeed / 60;
       s.el.style.left = s.x + 'px';
-
+      s.el.style.top = s.y + 'px';
       if (s.x > beltWidth - 78) {
         s.x = 18;
         s.el.style.left = s.x + 'px';
