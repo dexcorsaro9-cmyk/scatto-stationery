@@ -4,7 +4,6 @@ let score = 0;
 let mistakes = 0;
 let selectedItem = null;
 let beltState = [];
-let beltSpeed = 1.0;
 let running = false;
 
 const TYPES = [
@@ -13,14 +12,15 @@ const TYPES = [
   { key: 'Accessory', emoji: '📎', color: '#8ee7b3' }
 ];
 
-const LANE_Y = [18, 92, 166];
 const els = {};
+let LANE_Y = [];
 
 document.addEventListener('DOMContentLoaded', async () => {
   els.scoreChip = document.getElementById('scoreChip');
   els.objectiveText = document.getElementById('objectiveText');
   els.levelLabel = document.getElementById('levelLabel');
   els.itemsRoot = document.getElementById('itemsRoot');
+  els.belt = document.getElementById('belt');
   els.endPanel = document.getElementById('endPanel');
   els.endTitle = document.getElementById('endTitle');
   els.endSubtitle = document.getElementById('endSubtitle');
@@ -30,10 +30,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadLevels();
   setupBins();
   setupNextButton();
+  computeLaneY();
   startLevel(0);
   running = true;
   requestAnimationFrame(loop);
 });
+
+function computeLaneY() {
+  const beltHeight = els.belt.clientHeight;
+  const itemSize = 58;
+  const margin = 6;
+  LANE_Y = [
+    margin,
+    beltHeight / 2 - itemSize / 2,
+    beltHeight - itemSize - margin
+  ];
+}
 
 async function loadLevels() {
   const res = await fetch('levels.json');
@@ -71,29 +83,25 @@ function startLevel(index) {
   els.objectiveText.textContent = `Smista ${level.targetPens} penne, ${level.targetNotes} note, ${level.targetAccessories} accessori`;
   els.itemsRoot.innerHTML = '';
 
-  const totalPens = level.targetPens || 0;
-  const totalNotes = level.targetNotes || 0;
-  const totalAccessories = level.targetAccessories || 0;
-  const totalItems = totalPens + totalNotes + totalAccessories;
-  const laneCount = Math.max(1, level.lanes || 1);
-
   const typeQueue = [];
-  for (let i = 0; i < totalPens; i++) typeQueue.push('Pen');
-  for (let i = 0; i < totalNotes; i++) typeQueue.push('Note');
-  for (let i = 0; i < totalAccessories; i++) typeQueue.push('Accessory');
+  for (let i = 0; i < (level.targetPens||0); i++) typeQueue.push('Pen');
+  for (let i = 0; i < (level.targetNotes||0); i++) typeQueue.push('Note');
+  for (let i = 0; i < (level.targetAccessories||0); i++) typeQueue.push('Accessory');
 
-  const columns = Math.ceil(totalItems / laneCount);
-  const xSpacing = 74;
-  const laneOffsets = [0, 0, 0];
+  const laneCount = 3; // forziamo sempre 3 righe visibili indipendentemente dal livello
+  const xSpacing = 78;
+  const startX = 14;
+
+  const perLane = [[],[],[]];
+  typeQueue.forEach((type, i) => {
+    perLane[i % laneCount].push(type);
+  });
 
   for (let lane = 0; lane < laneCount; lane++) {
-    for (let col = 0; col < columns; col++) {
-      const i = lane * columns + col;
-      if (i >= totalItems) continue;
-      const type = typeQueue[i];
+    perLane[lane].forEach((type, col) => {
       const t = TYPES.find(x => x.key === type);
-      const x = 18 + col * xSpacing;
-      const y = LANE_Y[lane] + (lane * 2);
+      const x = startX + col * xSpacing;
+      const y = LANE_Y[lane];
 
       const el = document.createElement('div');
       el.className = 'item';
@@ -106,7 +114,7 @@ function startLevel(index) {
       els.itemsRoot.appendChild(el);
 
       beltState.push({ el, x, y, type: t.key });
-    }
+    });
   }
 
   updateHUD();
@@ -117,10 +125,6 @@ function selectItem(el) {
   selectedItem = el;
   document.querySelectorAll('.item').forEach(i => i.style.outline = 'none');
   el.style.outline = '4px solid rgba(255,255,255,0.9)';
-  el.style.transform = 'scale(1.08)';
-  setTimeout(() => {
-    if (document.body.contains(el)) el.style.transform = 'scale(1)';
-  }, 160);
 }
 
 function onBinClick(bin) {
@@ -128,15 +132,9 @@ function onBinClick(bin) {
   const itemType = selectedItem.dataset.type;
   const binType = bin.dataset.type;
 
-  bin.style.transform = 'translateY(-4px)';
-  setTimeout(() => bin.style.transform = 'translateY(0)', 120);
-
   if (itemType === binType) {
     score += 10;
-    selectedItem.style.transition = 'transform 0.22s ease, opacity 0.22s ease';
-    selectedItem.style.transform = 'translateY(220px) scale(0.9)';
-    selectedItem.style.opacity = '0';
-    setTimeout(() => selectedItem.remove(), 220);
+    selectedItem.remove();
     beltState = beltState.filter(s => s.el !== selectedItem);
   } else {
     mistakes += 1;
@@ -144,7 +142,6 @@ function onBinClick(bin) {
   }
 
   selectedItem = null;
-  document.querySelectorAll('.item').forEach(i => i.style.outline = 'none');
   updateHUD();
 
   const level = levels[currentLevelIndex] || levels[0];
@@ -152,7 +149,6 @@ function onBinClick(bin) {
     showEnd(false);
     return;
   }
-
   if (document.querySelectorAll('.item').length === 0) {
     showEnd(true);
   }
@@ -163,22 +159,13 @@ function loop() {
     requestAnimationFrame(loop);
     return;
   }
-
-  const belt = document.querySelector('.belt');
-  if (belt) {
-    const beltWidth = belt.clientWidth;
-    beltState.forEach(s => {
-      if (!document.body.contains(s.el)) return;
-      s.x += 0.35;
-      s.el.style.left = s.x + 'px';
-      s.el.style.top = s.y + 'px';
-      if (s.x > beltWidth - 78) {
-        s.x = 18;
-        s.el.style.left = s.x + 'px';
-      }
-    });
-  }
-
+  const beltWidth = els.belt.clientWidth;
+  beltState.forEach(s => {
+    if (!document.body.contains(s.el)) return;
+    s.x += 0.4;
+    if (s.x > beltWidth - 64) s.x = 14;
+    s.el.style.left = s.x + 'px';
+  });
   requestAnimationFrame(loop);
 }
 
