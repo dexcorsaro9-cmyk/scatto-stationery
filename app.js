@@ -2,11 +2,37 @@ let levels = [];
 let currentLevelIndex = 0;
 let score = 0;
 let mistakes = 0;
+let selectedItem = null;
+let beltState = [];
+let beltSpeed = 1.0;
+let running = false;
+
+const TYPES = [
+  { key: 'Pen', emoji: '✏️', color: '#ffd85f' },
+  { key: 'Note', emoji: '🗒️', color: '#ff9dca' },
+  { key: 'Accessory', emoji: '📎', color: '#8ee7b3' }
+];
+
+const LANE_Y = [26, 146, 266];
+const els = {};
 
 document.addEventListener('DOMContentLoaded', async () => {
+  els.scoreChip = document.getElementById('scoreChip');
+  els.objectiveText = document.getElementById('objectiveText');
+  els.levelLabel = document.getElementById('levelLabel');
+  els.itemsRoot = document.getElementById('itemsRoot');
+  els.endPanel = document.getElementById('endPanel');
+  els.endTitle = document.getElementById('endTitle');
+  els.endSubtitle = document.getElementById('endSubtitle');
+  els.nextLevelBtn = document.getElementById('nextLevelBtn');
+  els.bins = Array.from(document.querySelectorAll('.bin'));
+
   await loadLevels();
-  setupGame();
+  setupBins();
+  setupNextButton();
   startLevel(0);
+  running = true;
+  requestAnimationFrame(loop);
 });
 
 async function loadLevels() {
@@ -15,117 +41,106 @@ async function loadLevels() {
   levels = data.levels || [];
 }
 
-function setupGame() {
-  const bins = Array.from(document.querySelectorAll('.bin'));
-  const scoreChip = document.getElementById('scoreChip');
-  const nextBtn = document.getElementById('nextLevelBtn');
-  const endPanel = document.getElementById('endPanel');
-
-  bins.forEach(bin => {
-    bin.addEventListener('click', () => onBinClick(bin));
-  });
-
-  nextBtn.addEventListener('click', () => {
-    endPanel.classList.add('hidden');
-    if (currentLevelIndex < levels.length - 1) {
-      startLevel(currentLevelIndex + 1);
-    } else {
-      startLevel(0);
-    }
-  });
-
-  function updateScore() {
-    scoreChip.textContent = '⭐ ' + score;
-  }
-
-  window._updateScore = updateScore;
+function setupBins() {
+  els.bins.forEach(bin => bin.addEventListener('click', () => onBinClick(bin)));
 }
 
-let selectedItem = null;
-let beltState = [];
-let beltSpeed = 18;
+function setupNextButton() {
+  els.nextLevelBtn.addEventListener('click', () => {
+    els.endPanel.classList.add('hidden');
+    const next = currentLevelIndex + 1;
+    startLevel(next >= levels.length ? 0 : next);
+  });
+}
+
+function updateHUD() {
+  els.scoreChip.textContent = '⭐ ' + score;
+}
 
 function startLevel(index) {
   currentLevelIndex = index;
   const level = levels[index] || levels[0];
+
   score = 0;
   mistakes = 0;
   selectedItem = null;
+  beltState = [];
+  beltSpeed = 40 * (level.beltSpeed || 1);
+  running = true;
 
-  const levelLabel = document.getElementById('levelLabel');
-  const objectiveText = document.getElementById('objectiveText');
-  levelLabel.textContent = String(level.level);
-  objectiveText.textContent = `Smista ${level.targetPens} penne, ${level.targetNotes} note, ${level.targetAccessories} accessori`;
+  els.levelLabel.textContent = String(level.level || 1);
+  els.objectiveText.textContent = `Smista ${level.targetPens} penne, ${level.targetNotes} note, ${level.targetAccessories} accessori`;
+  els.itemsRoot.innerHTML = '';
 
-  const itemsRoot = document.getElementById('itemsRoot');
-  itemsRoot.innerHTML = '';
+  const totalPens = level.targetPens || 0;
+  const totalNotes = level.targetNotes || 0;
+  const totalAccessories = level.targetAccessories || 0;
+  const totalItems = totalPens + totalNotes + totalAccessories;
 
-  const types = [
-    { key:'Pen', emoji:'✏️', color:'#ffd85f' },
-    { key:'Note', emoji:'🗒️', color:'#ff9dca' },
-    { key:'Accessory', emoji:'📎', color:'#8ee7b3' }
+  const order = [
+    ...Array(totalPens).fill('Pen'),
+    ...Array(totalNotes).fill('Note'),
+    ...Array(totalAccessories).fill('Accessory')
   ];
 
-  const totalItems = level.targetPens + level.targetNotes + level.targetAccessories;
-  beltSpeed = 40 * level.beltSpeed;
-
-  beltState = [];
+  const perLaneSpacing = 96;
+  const startX = 18;
+  const maxVisible = 10;
 
   for (let i = 0; i < totalItems; i++) {
-    const tIndex = i % types.length;
-    const t = types[tIndex];
-    const lane = i % level.lanes;
-    const yBase = 22 + lane * 120;
+    const type = order[i % order.length];
+    const t = TYPES.find(x => x.key === type);
+    const lane = i % Math.max(1, (level.lanes || 1));
+    const x = startX + (i % maxVisible) * perLaneSpacing + Math.floor(i / maxVisible) * 30;
 
     const el = document.createElement('div');
     el.className = 'item';
     el.dataset.type = t.key;
     el.textContent = t.emoji;
     el.style.background = t.color;
-    el.style.left = (20 + i * 24) + 'px';
-    el.style.top = yBase + 'px';
+    el.style.left = x + 'px';
+    el.style.top = LANE_Y[lane] + 'px';
     el.addEventListener('click', () => selectItem(el));
-    itemsRoot.appendChild(el);
+    els.itemsRoot.appendChild(el);
 
     beltState.push({
       el,
-      x: 20 + i * 24,
-      lane
+      x,
+      lane,
+      type: t.key
     });
   }
 
-  window._updateScore();
-  if (!window._loopRunning) {
-    window._loopRunning = true;
-    requestAnimationFrame(loop);
-  }
+  updateHUD();
 }
 
 function selectItem(el) {
+  if (!running) return;
   selectedItem = el;
   document.querySelectorAll('.item').forEach(i => i.style.outline = 'none');
   el.style.outline = '4px solid rgba(255,255,255,0.9)';
-  el.style.transform += ' scale(1.06)';
+  el.style.transform = 'scale(1.08)';
   setTimeout(() => {
-    el.style.transform = el.style.transform.replace(' scale(1.06)','');
-  }, 200);
+    if (document.body.contains(el)) el.style.transform = 'scale(1)';
+  }, 160);
 }
 
 function onBinClick(bin) {
-  if (!selectedItem) return;
-  const iconType = selectedItem.dataset.type;
+  if (!running || !selectedItem) return;
+
+  const itemType = selectedItem.dataset.type;
   const binType = bin.dataset.type;
 
   bin.style.transform = 'translateY(-4px)';
   setTimeout(() => bin.style.transform = 'translateY(0)', 120);
 
-  const level = levels[currentLevelIndex] || levels[0];
-
-  if (iconType === binType) {
+  if (itemType === binType) {
     score += 10;
-    selectedItem.style.transform += ' translateY(220px)';
+    selectedItem.style.transition = 'transform 0.22s ease, opacity 0.22s ease';
+    selectedItem.style.transform = 'translateY(220px) scale(0.9)';
     selectedItem.style.opacity = '0';
-    setTimeout(() => selectedItem.remove(), 280);
+    setTimeout(() => selectedItem.remove(), 220);
+    beltState = beltState.filter(s => s.el !== selectedItem);
   } else {
     mistakes += 1;
     score = Math.max(0, score - 5);
@@ -133,41 +148,47 @@ function onBinClick(bin) {
 
   selectedItem = null;
   document.querySelectorAll('.item').forEach(i => i.style.outline = 'none');
-  window._updateScore();
+  updateHUD();
 
-  if (mistakes >= level.allowedMistakes) {
+  const level = levels[currentLevelIndex] || levels[0];
+  if (mistakes >= (level.allowedMistakes || 5)) {
     showEnd(false);
-  } else {
-    if (document.querySelectorAll('.item').length === 0) {
-      showEnd(true);
-    }
+    return;
+  }
+
+  if (document.querySelectorAll('.item').length === 0) {
+    showEnd(true);
   }
 }
 
-function loop(ts) {
-  const belt = document.querySelector('.belt');
-  if (!belt) return;
+function loop() {
+  if (!running) {
+    requestAnimationFrame(loop);
+    return;
+  }
 
-  beltState.forEach(s => {
-    if (!document.body.contains(s.el)) return;
-    s.x += beltSpeed * (1/60); // approx 60fps
-    s.el.style.left = s.x + 'px';
-    if (s.x > (belt.clientWidth - 34)) {
-      s.x = 20;
+  const belt = document.querySelector('.belt');
+  if (belt) {
+    const beltWidth = belt.clientWidth;
+
+    beltState.forEach(s => {
+      if (!document.body.contains(s.el)) return;
+      s.x += beltSpeed / 60;
       s.el.style.left = s.x + 'px';
-    }
-  });
+
+      if (s.x > beltWidth - 78) {
+        s.x = 18;
+        s.el.style.left = s.x + 'px';
+      }
+    });
+  }
 
   requestAnimationFrame(loop);
 }
 
 function showEnd(success) {
-  const endPanel = document.getElementById('endPanel');
-  const title = document.getElementById('endTitle');
-  const subtitle = document.getElementById('endSubtitle');
-  endPanel.classList.remove('hidden');
-  title.textContent = success ? 'Livello completato!' : 'Ritenta!';
-  subtitle.textContent = success
-    ? `Punteggio: ${score}`
-    : `Errori: ${mistakes}`;
+  running = false;
+  els.endPanel.classList.remove('hidden');
+  els.endTitle.textContent = success ? 'Livello completato!' : 'Ritenta!';
+  els.endSubtitle.textContent = success ? `Punteggio: ${score}` : `Errori: ${mistakes}`;
 }
