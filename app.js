@@ -13,7 +13,7 @@ const TYPES = [
   { key: 'Accessory', emoji: '📎', color: '#8ee7b3' }
 ];
 
-const LANE_Y = [18, 98, 178];
+const LANE_Y = [18, 92, 166];
 const els = {};
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -65,48 +65,48 @@ function startLevel(index) {
   mistakes = 0;
   selectedItem = null;
   beltState = [];
-  beltSpeed = 40 * (level.beltSpeed || 1);
   running = true;
 
   els.levelLabel.textContent = String(level.level || 1);
   els.objectiveText.textContent = `Smista ${level.targetPens} penne, ${level.targetNotes} note, ${level.targetAccessories} accessori`;
   els.itemsRoot.innerHTML = '';
 
-  const counts = {
-    Pen: level.targetPens || 0,
-    Note: level.targetNotes || 0,
-    Accessory: level.targetAccessories || 0
-  };
-
-  const levelTypes = [];
-  Object.keys(counts).forEach(k => {
-    for (let i = 0; i < counts[k]; i++) levelTypes.push(k);
-  });
-
+  const totalPens = level.targetPens || 0;
+  const totalNotes = level.targetNotes || 0;
+  const totalAccessories = level.targetAccessories || 0;
+  const totalItems = totalPens + totalNotes + totalAccessories;
   const laneCount = Math.max(1, level.lanes || 1);
-  const xSpacing = 92;
-  const ySpacing = 78;
-  const perLaneCount = Math.ceil(levelTypes.length / laneCount);
 
-  for (let i = 0; i < levelTypes.length; i++) {
-    const type = levelTypes[i];
-    const t = TYPES.find(x => x.key === type);
-    const lane = i % laneCount;
-    const col = Math.floor(i / laneCount);
-    const x = 18 + col * xSpacing;
-    const y = LANE_Y[lane] + (col % 2) * 4;
+  const typeQueue = [];
+  for (let i = 0; i < totalPens; i++) typeQueue.push('Pen');
+  for (let i = 0; i < totalNotes; i++) typeQueue.push('Note');
+  for (let i = 0; i < totalAccessories; i++) typeQueue.push('Accessory');
 
-    const el = document.createElement('div');
-    el.className = 'item';
-    el.dataset.type = t.key;
-    el.textContent = t.emoji;
-    el.style.background = t.color;
-    el.style.left = x + 'px';
-    el.style.top = y + 'px';
-    el.addEventListener('click', () => selectItem(el));
-    els.itemsRoot.appendChild(el);
+  const columns = Math.ceil(totalItems / laneCount);
+  const xSpacing = 74;
+  const laneOffsets = [0, 0, 0];
 
-    beltState.push({ el, x, y, lane, type: t.key });
+  for (let lane = 0; lane < laneCount; lane++) {
+    for (let col = 0; col < columns; col++) {
+      const i = lane * columns + col;
+      if (i >= totalItems) continue;
+      const type = typeQueue[i];
+      const t = TYPES.find(x => x.key === type);
+      const x = 18 + col * xSpacing;
+      const y = LANE_Y[lane] + (lane * 2);
+
+      const el = document.createElement('div');
+      el.className = 'item';
+      el.dataset.type = t.key;
+      el.textContent = t.emoji;
+      el.style.background = t.color;
+      el.style.left = x + 'px';
+      el.style.top = y + 'px';
+      el.addEventListener('click', () => selectItem(el));
+      els.itemsRoot.appendChild(el);
+
+      beltState.push({ el, x, y, type: t.key });
+    }
   }
 
   updateHUD();
@@ -169,7 +169,7 @@ function loop() {
     const beltWidth = belt.clientWidth;
     beltState.forEach(s => {
       if (!document.body.contains(s.el)) return;
-      s.x += beltSpeed / 60;
+      s.x += 0.35;
       s.el.style.left = s.x + 'px';
       s.el.style.top = s.y + 'px';
       if (s.x > beltWidth - 78) {
