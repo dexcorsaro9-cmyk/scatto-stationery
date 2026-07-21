@@ -1,16 +1,27 @@
-from PIL import Image
+from PIL import Image, ImageChops
 from pathlib import Path
 import os, shutil, json
 
 src = 'c04010b6-20e8-44b9-9b87-f5ecafeb8ab3.jpg'
 img = Image.open(src).convert('RGBA')
 
-# Crop to square, keep centered and preserve icon content
+# Trim transparent/near-background margin by bounding visible content
+bg = Image.new('RGBA', img.size, (255, 255, 255, 0))
+diff = ImageChops.difference(img, bg)
+bbox = diff.getbbox()
+if bbox:
+    img = img.crop(bbox)
+
+# Add a tiny breathing room and make square canvas so icon fills better
 w, h = img.size
-side = min(w, h)
-left = (w - side) // 2
-top = (h - side) // 2
-img = img.crop((left, top, left + side, top + side))
+side = max(w, h)
+canvas = Image.new('RGBA', (side, side), (0, 0, 0, 0))
+off_x = (side - w) // 2
+off_y = (side - h) // 2
+canvas.paste(img, (off_x, off_y), img)
+img = canvas
+
+# Optional slight upscale for clarity before resizing
 
 outdir = Path('output/stationery_sort_web/assets')
 outdir.mkdir(parents=True, exist_ok=True)
@@ -19,21 +30,14 @@ for s in [180, 192, 512]:
     resized = img.resize((s, s), Image.LANCZOS)
     resized.save(outdir / f'icon-{s}.png')
 
-# favicon.ico
+# Favicon
 img.resize((32, 32), Image.LANCZOS).save(outdir / 'favicon.ico')
 
-# Replace HTML references to the correct asset filenames if needed
-html_path = Path('output/stationery_sort_web/index.html')
-if not html_path.exists():
-    html_path = Path('output/stationery_sort_web/index_WITH_ICON.html')
-html = html_path.read_text(encoding='utf-8')
-html = html.replace('assets/icon-180.png', 'assets/icon-180.png')
-html = html.replace('assets/icon-192.png', 'assets/icon-192.png')
-html = html.replace('assets/favicon.ico', 'assets/favicon.ico')
-html = html.replace('href="manifest.webmanifest"', 'href="manifest.webmanifest"')
-html_path.write_text(html, encoding='utf-8')
+# Copy to root output as downloadables
+for fn in ['icon-180.png', 'icon-192.png', 'icon-512.png', 'favicon.ico']:
+    shutil.copy(outdir / fn, Path('output') / fn)
 
-# Update manifest just in case
+# Ensure manifest still points to the same files
 manifest = {
     "name": "Stationery Sort!",
     "short_name": "Stationery Sort",
@@ -47,12 +51,6 @@ manifest = {
     ]
 }
 (Path('output/stationery_sort_web/manifest.webmanifest')).write_text(json.dumps(manifest, indent=2), encoding='utf-8')
-
-# Copy files to root output for easy download
-shutil.copy(outdir / 'icon-180.png', 'output/icon-180.png')
-shutil.copy(outdir / 'icon-192.png', 'output/icon-192.png')
-shutil.copy(outdir / 'icon-512.png', 'output/icon-512.png')
-shutil.copy(outdir / 'favicon.ico', 'output/favicon.ico')
 shutil.copy('output/stationery_sort_web/manifest.webmanifest', 'output/manifest.webmanifest')
 
-print('updated icons from correct source')
+print('icons refitted and exported')
