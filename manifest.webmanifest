@@ -1,25 +1,58 @@
+from PIL import Image
 from pathlib import Path
-import shutil
+import os, shutil, json
 
-# Prepare a simple deployment layout in output/stationery_sort_web
-base = Path('output/stationery_sort_web')
-(base / 'assets').mkdir(parents=True, exist_ok=True)
+src = 'c04010b6-20e8-44b9-9b87-f5ecafeb8ab3.jpg'
+img = Image.open(src).convert('RGBA')
 
-# Ensure manifest and html are in place relative to HTML
-# Copy generated HTML to a friendlier final name and keep manifest adjacent
-src_html = base / 'index_WITH_ICON.html'
-dst_html = base / 'index.html'
-if src_html.exists():
-    shutil.copy(src_html, dst_html)
+# Crop to square, keep centered and preserve icon content
+w, h = img.size
+side = min(w, h)
+left = (w - side) // 2
+top = (h - side) // 2
+img = img.crop((left, top, left + side, top + side))
 
-# Create a tiny README with placement instructions
-readme = '''Carica questi file così:
-- index.html nella root della webapp.
-- manifest.webmanifest nella stessa cartella di index.html.
-- assets/ nella stessa cartella, con icon-180.png, icon-192.png, icon-512.png e favicon.ico.
+outdir = Path('output/stationery_sort_web/assets')
+outdir.mkdir(parents=True, exist_ok=True)
 
-Nell\'HTML il link è relativo: href="manifest.webmanifest".
-'''
-(base / 'README_manifest.txt').write_text(readme, encoding='utf-8')
+for s in [180, 192, 512]:
+    resized = img.resize((s, s), Image.LANCZOS)
+    resized.save(outdir / f'icon-{s}.png')
 
-print('layout ready')
+# favicon.ico
+img.resize((32, 32), Image.LANCZOS).save(outdir / 'favicon.ico')
+
+# Replace HTML references to the correct asset filenames if needed
+html_path = Path('output/stationery_sort_web/index.html')
+if not html_path.exists():
+    html_path = Path('output/stationery_sort_web/index_WITH_ICON.html')
+html = html_path.read_text(encoding='utf-8')
+html = html.replace('assets/icon-180.png', 'assets/icon-180.png')
+html = html.replace('assets/icon-192.png', 'assets/icon-192.png')
+html = html.replace('assets/favicon.ico', 'assets/favicon.ico')
+html = html.replace('href="manifest.webmanifest"', 'href="manifest.webmanifest"')
+html_path.write_text(html, encoding='utf-8')
+
+# Update manifest just in case
+manifest = {
+    "name": "Stationery Sort!",
+    "short_name": "Stationery Sort",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#e8fbff",
+    "theme_color": "#8dd9ff",
+    "icons": [
+        {"src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png"},
+        {"src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png"}
+    ]
+}
+(Path('output/stationery_sort_web/manifest.webmanifest')).write_text(json.dumps(manifest, indent=2), encoding='utf-8')
+
+# Copy files to root output for easy download
+shutil.copy(outdir / 'icon-180.png', 'output/icon-180.png')
+shutil.copy(outdir / 'icon-192.png', 'output/icon-192.png')
+shutil.copy(outdir / 'icon-512.png', 'output/icon-512.png')
+shutil.copy(outdir / 'favicon.ico', 'output/favicon.ico')
+shutil.copy('output/stationery_sort_web/manifest.webmanifest', 'output/manifest.webmanifest')
+
+print('updated icons from correct source')
